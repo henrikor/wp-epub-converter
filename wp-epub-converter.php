@@ -2,7 +2,7 @@
 /*
 Plugin Name: WP EPUB Converter
 Description: Convert WordPress posts to EPUB using a Go program.
-Version: 1.0
+Version: 1.1
 Author: Your Name
 */
 
@@ -14,6 +14,7 @@ class WPEPUBConverter {
 
     public function __construct() {
         add_action('admin_menu', array($this, 'create_admin_page'));
+        add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_post_convert_to_epub', array($this, 'convert_to_epub'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_styles'));
         add_action('wp_ajax_nopriv_generate_epub', array($this, 'generate_epub'));
@@ -36,23 +37,55 @@ class WPEPUBConverter {
     public function admin_page_html() {
         ?>
         <div class="wrap">
-            <h1>Convert Posts to EPUB</h1>
-            <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="POST">
-                <input type="hidden" name="action" value="convert_to_epub">
-                <label for="post_id">Select Post:</label>
-                <select name="post_id" id="post_id">
-                    <?php
-                    $posts = get_posts(array('numberposts' => -1));
-                    foreach ($posts as $post) {
-                        echo '<option value="' . $post->ID . '">' . $post->post_title . '</option>';
-                    }
-                    ?>
-                </select>
-                <button type="submit">Convert to EPUB</button>
+            <h1>EPUB Converter Settings</h1>
+            <form method="post" action="options.php">
+                <?php
+                settings_fields('wp_epub_converter_settings');
+                do_settings_sections('epub-converter');
+                submit_button();
+                ?>
             </form>
         </div>
         <?php
         error_log('Admin page HTML rendered.');
+    }
+
+    public function register_settings() {
+        register_setting('wp_epub_converter_settings', 'wp_epub_converter_author');
+        register_setting('wp_epub_converter_settings', 'wp_epub_converter_bin_path');
+
+        add_settings_section(
+            'wp_epub_converter_settings_section',
+            'General Settings',
+            null,
+            'epub-converter'
+        );
+
+        add_settings_field(
+            'wp_epub_converter_author',
+            'Default Author',
+            array($this, 'author_field_html'),
+            'epub-converter',
+            'wp_epub_converter_settings_section'
+        );
+
+        add_settings_field(
+            'wp_epub_converter_bin_path',
+            'Convert to EPUB Binary Path',
+            array($this, 'bin_path_field_html'),
+            'epub-converter',
+            'wp_epub_converter_settings_section'
+        );
+    }
+
+    public function author_field_html() {
+        $value = get_option('wp_epub_converter_author', '');
+        echo '<input type="text" name="wp_epub_converter_author" value="' . esc_attr($value) . '" />';
+    }
+
+    public function bin_path_field_html() {
+        $value = get_option('wp_epub_converter_bin_path', '/usr/local/bin/convert_to_epub');
+        echo '<input type="text" name="wp_epub_converter_bin_path" value="' . esc_attr($value) . '" />';
     }
 
     public function convert_to_epub() {
@@ -76,9 +109,10 @@ class WPEPUBConverter {
 
     private function generate_epub_file($post_id) {
         $post = get_post($post_id);
-        $author = get_the_author_meta('display_name', $post->post_author);
+        $author = get_option('wp_epub_converter_author', get_the_author_meta('display_name', $post->post_author));
         $title = $post->post_title;
         $content = $post->post_content;
+        $bin_path = get_option('wp_epub_converter_bin_path', '/usr/local/bin/convert_to_epub');
 
         $wp_folder = wp_upload_dir()['basedir'] . '/epub_converter';
         $wp_file = 'post_' . $post_id . '.html';
@@ -94,7 +128,8 @@ class WPEPUBConverter {
         file_put_contents($wp_file_path, $content);
         error_log('Saved post content to: ' . $wp_file_path);
 
-        $command = sprintf('/usr/local/bin/convert_to_epub -author=%s -title=%s -wpfile=%s -epubfile=%s -wpfolder=%s -epubfolder=%s -headingtype=h2',
+        $command = sprintf('%s -author=%s -title=%s -wpfile=%s -epubfile=%s -wpfolder=%s -epubfolder=%s -headingtype=h2',
+            escapeshellcmd($bin_path),
             escapeshellarg($author),
             escapeshellarg($title),
             escapeshellarg($wp_file),
