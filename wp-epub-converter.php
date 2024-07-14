@@ -53,6 +53,7 @@ class WPEPUBConverter {
     public function register_settings() {
         register_setting('wp_epub_converter_settings', 'wp_epub_converter_author');
         register_setting('wp_epub_converter_settings', 'wp_epub_converter_bin_path');
+        register_setting('wp_epub_converter_settings', 'wp_epub_converter_log_path'); // Nytt felt for log path
 
         add_settings_section(
             'wp_epub_converter_settings_section',
@@ -76,6 +77,14 @@ class WPEPUBConverter {
             'epub-converter',
             'wp_epub_converter_settings_section'
         );
+
+        add_settings_field(
+            'wp_epub_converter_log_path', // Legg til felt for log path
+            'Log Path',
+            array($this, 'log_path_field_html'),
+            'epub-converter',
+            'wp_epub_converter_settings_section'
+        );
     }
 
     public function author_field_html() {
@@ -86,6 +95,11 @@ class WPEPUBConverter {
     public function bin_path_field_html() {
         $value = get_option('wp_epub_converter_bin_path', '/usr/local/bin/convert_to_epub');
         echo '<input type="text" name="wp_epub_converter_bin_path" value="' . esc_attr($value) . '" />';
+    }
+
+    public function log_path_field_html() { // Ny funksjon for å vise input felt for log path
+        $value = get_option('wp_epub_converter_log_path', '');
+        echo '<input type="text" name="wp_epub_converter_log_path" value="' . esc_attr($value) . '" />';
     }
 
     public function convert_to_epub() {
@@ -113,6 +127,7 @@ class WPEPUBConverter {
         $title = $post->post_title;
         $content = $post->post_content;
         $bin_path = get_option('wp_epub_converter_bin_path', '/usr/local/bin/convert_to_epub');
+        $log_path = get_option('wp_epub_converter_log_path', ''); // Hent log path
 
         $wp_folder = wp_upload_dir()['basedir'] . '/epub_converter';
         $wp_file = 'post_' . $post_id . '.html';
@@ -128,14 +143,15 @@ class WPEPUBConverter {
         file_put_contents($wp_file_path, $content);
         error_log('Saved post content to: ' . $wp_file_path);
 
-        $command = sprintf('%s -author=%s -title=%s -wpfile=%s -epubfile=%s -wpfolder=%s -epubfolder=%s -headingtype=h2',
+        $command = sprintf('%s -author=%s -title=%s -wpfile=%s -epubfile=%s -wpfolder=%s -epubfolder=%s -headingtype=h2 -logdir=%s -br',
             escapeshellcmd($bin_path),
             escapeshellarg($author),
             escapeshellarg($title),
             escapeshellarg($wp_file),
             escapeshellarg($epub_file),
             escapeshellarg($wp_folder),
-            escapeshellarg($epub_folder)
+            escapeshellarg($epub_folder),
+            escapeshellarg($log_path) // Legg til logdir flagget
         );
 
         exec($command, $output, $return_var);
