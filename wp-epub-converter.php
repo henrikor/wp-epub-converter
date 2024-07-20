@@ -94,7 +94,7 @@ class WPEPUBConverter {
     }
 
     public function bin_path_field_html() {
-        $value = get_option('wp_epub_converter_bin_path', '/usr/local/bin/convert_to_epub');
+        $value = get_option('wp_epub_converter_bin_path', plugin_dir_path(__FILE__) . 'wp-go-epub');
         echo '<input type="text" name="wp_epub_converter_bin_path" value="' . esc_attr($value) . '" />';
     }
 
@@ -120,37 +120,45 @@ class WPEPUBConverter {
         $title = sanitize_text_field($_POST['title']);
         $version = intval($_POST['version']);
         $kepub = isset($_POST['kepub']) ? boolval($_POST['kepub']) : false;
-
+    
         error_log('Generating EPUB for post ID: ' . $post_id);
         $epub_url = $this->generate_epub_file($post_id, $author, $title, $version, $kepub);
-        wp_redirect($epub_url);
-        exit;
+    
+        if (headers_sent()) {
+            error_log('Headers already sent, cannot redirect.');
+        } else {
+            wp_redirect($epub_url);
+            exit;
+        }
     }
-
+    
     private function generate_epub_file($post_id, $author, $title, $version, $kepub) {
         $post = get_post($post_id);
         $default_author = get_option('wp_epub_converter_author', get_the_author_meta('display_name', $post->post_author));
         $author = empty($author) ? $default_author : $author;
         $title = empty($title) ? $post->post_title : $title;
         $content = $post->post_content;
-        $bin_path = get_option('wp_epub_converter_bin_path', '/usr/local/bin/convert_to_epub');
-        $log_path = get_option('wp_epub_converter_log_path', ''); // Hent log path
-
+        $bin_path = plugin_dir_path(__FILE__) . 'wp-go-epub';
+        $log_path = plugin_dir_path(__FILE__) . 'log';
+    
+        error_log('Using binary path: ' . $bin_path);
+        error_log('Log path: ' . $log_path);
+    
         $wp_folder = wp_upload_dir()['basedir'] . '/epub_converter';
         $wp_file = 'post_' . $post_id . '.html';
         $epub_folder = wp_upload_dir()['basedir'] . '/epub_converter';
         $epub_file = 'post_' . $post_id . '.epub';
-
+    
         if (!file_exists($wp_folder)) {
             mkdir($wp_folder, 0755, true);
             error_log('Created directory: ' . $wp_folder);
         }
-
+    
         $wp_file_path = $wp_folder . '/' . $wp_file;
         file_put_contents($wp_file_path, $content);
         error_log('Saved post content to: ' . $wp_file_path);
-
-        $command = sprintf('%s -author=%s -title=%s -wpfile=%s -epubfile=%s -wpfolder=%s -epubfolder=%s -headingtype=h2 -logdir=%s -br -version=%d',
+    
+        $command = sprintf('\'%s\' -author=%s -title=%s -wpfile=%s -epubfile=%s -wpfolder=%s -epubfolder=%s -logdir=%s -br -version=%d',
             escapeshellcmd($bin_path),
             escapeshellarg($author),
             escapeshellarg($title),
@@ -161,25 +169,29 @@ class WPEPUBConverter {
             escapeshellarg($log_path),
             $version
         );
-
+    
         if ($kepub) {
             $command .= ' -kepub';
         }
-
+    
+        error_log('Executing command: ' . $command);
+    
         exec($command, $output, $return_var);
-        error_log('Executed command: ' . $command);
-
+        error_log('Command output: ' . implode("\n", $output));
+        error_log('Command return value: ' . $return_var);
+    
+        $epub_url = wp_upload_dir()['baseurl'] . '/epub_converter/' . $epub_file;
+        error_log('EPUB file URL: ' . $epub_url);
+        error_log('EPUB file exists: ' . (file_exists($epub_folder . '/' . $epub_file) ? 'Yes' : 'No'));
+    
         if ($return_var !== 0) {
             error_log('Error during EPUB conversion: ' . implode("\n", $output));
             wp_die('Error during EPUB conversion: ' . implode("\n", $output));
         }
-
-        $epub_url = wp_upload_dir()['baseurl'] . '/epub_converter/' . $epub_file;
-        error_log('EPUB file generated: ' . $epub_url);
+    
         return $epub_url;
     }
-
-    public function enqueue_styles() {
+        public function enqueue_styles() {
         wp_enqueue_style('wp-epub-converter', plugins_url('wp-epub-converter.css', __FILE__));
         error_log('Styles enqueued.');
     }
@@ -197,10 +209,8 @@ function display_epub_link() {
     if (is_single()) {
         $post_id = get_the_ID();
         $url = admin_url('admin-ajax.php') . '?action=generate_epub&post_id=' . $post_id;
-        return '<span class="meta-epub"> <svg class="icon icon-book" aria-hidden="true" role="img"> <use xlink:href="https://test.proletarianperspectives.local/wp-content/themes/tortuga/assets/icons/genericons-neue.svg#book"></use> </svg><a href="#" class="button epub-link" data-post-id="' . $post_id . '">Download as EPUB</a></span>';
+        return '<span class="meta-epub"> <svg class="icon icon-book" aria-hidden="true" role="img"> <use xlink:href="' . get_template_directory_uri() . '/assets/icons/genericons-neue.svg#book"></use> </svg><a href="#" class="button epub-link" data-post-id="' . $post_id . '">Download as EPUB</a></span>';
     }
 }
 
 new WPEPUBConverter();
-?>
-
