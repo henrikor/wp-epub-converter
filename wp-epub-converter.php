@@ -123,16 +123,21 @@ class WPEPUBConverter {
     
         error_log('Generating EPUB for post ID: ' . $post_id);
         $epub_url = $this->generate_epub_file($post_id, $author, $title, $version, $kepub);
+        error_log('EPUB URL: ' . $epub_url);
     
-        if (headers_sent()) {
-            error_log('Headers already sent, cannot redirect.');
+        if ($epub_url) {
+            wp_send_json_success(array('url' => $epub_url));
         } else {
-            wp_redirect($epub_url);
-            exit;
+            wp_send_json_error('Failed to generate EPUB URL');
         }
     }
-    
+                
     private function generate_epub_file($post_id, $author, $title, $version, $kepub) {
+        // Clean the output buffer
+        if (ob_get_length()) {
+            ob_end_clean();
+        }
+    
         $post = get_post($post_id);
         $default_author = get_option('wp_epub_converter_author', get_the_author_meta('display_name', $post->post_author));
         $author = empty($author) ? $default_author : $author;
@@ -152,6 +157,12 @@ class WPEPUBConverter {
         if (!file_exists($wp_folder)) {
             mkdir($wp_folder, 0755, true);
             error_log('Created directory: ' . $wp_folder);
+        }
+    
+        // Remove the existing file if it exists
+        if (file_exists($epub_folder . '/' . $epub_file)) {
+            unlink($epub_folder . '/' . $epub_file);
+            error_log('Deleted existing EPUB file: ' . $epub_folder . '/' . $epub_file);
         }
     
         $wp_file_path = $wp_folder . '/' . $wp_file;
@@ -189,9 +200,15 @@ class WPEPUBConverter {
             wp_die('Error during EPUB conversion: ' . implode("\n", $output));
         }
     
-        return $epub_url;
+        if (file_exists($epub_folder . '/' . $epub_file)) {
+            return $epub_url;
+        } else {
+            error_log('EPUB file not found: ' . $epub_folder . '/' . $epub_file);
+            wp_die('EPUB file not found.');
+        }
     }
-        public function enqueue_styles() {
+            
+    public function enqueue_styles() {
         wp_enqueue_style('wp-epub-converter', plugins_url('wp-epub-converter.css', __FILE__));
         error_log('Styles enqueued.');
     }
