@@ -115,6 +115,13 @@ class WPEPUBConverter {
     }
 
     public function generate_epub() {
+        // Ensure the request is an AJAX request
+        if (!defined('DOING_AJAX') || !DOING_AJAX) {
+            wp_send_json_error(array('message' => 'Invalid request'));
+            wp_die();
+        }
+    
+        // Get and sanitize the form data
         $post_id = intval($_POST['post_id']);
         $author = sanitize_text_field($_POST['author']);
         $title = sanitize_text_field($_POST['title']);
@@ -122,16 +129,20 @@ class WPEPUBConverter {
         $kepub = isset($_POST['kepub']) ? boolval($_POST['kepub']) : false;
     
         error_log('Generating EPUB for post ID: ' . $post_id);
-        $epub_url = $this->generate_epub_file($post_id, $author, $title, $version, $kepub);
-        error_log('EPUB URL: ' . $epub_url);
     
+        // Generate EPUB file and get the URL
+        $epub_url = $this->generate_epub_file($post_id, $author, $title, $version, $kepub);
+        
         if ($epub_url) {
+            error_log('EPUB URL: ' . $epub_url);
             wp_send_json_success(array('url' => $epub_url));
         } else {
-            wp_send_json_error('Failed to generate EPUB URL');
+            wp_send_json_error(array('message' => 'Failed to generate EPUB file'));
         }
+        
+        wp_die(); // Terminate AJAX request properly
     }
-                
+                                                
     private function generate_epub_file($post_id, $author, $title, $version, $kepub) {
         // Clean the output buffer
         if (ob_get_length()) {
@@ -217,9 +228,11 @@ class WPEPUBConverter {
         wp_enqueue_script('wp-epub-converter', plugins_url('wp-epub-converter.js', __FILE__), array('jquery'), null, true);
         wp_localize_script('wp-epub-converter', 'wpEpubConverter', array(
             'ajax_url' => admin_url('admin-ajax.php'),
+            'default_author' => get_option('wp_epub_converter_author', ''),
         ));
         error_log('Scripts enqueued.');
     }
+        
 }
 
 function display_epub_link() {
