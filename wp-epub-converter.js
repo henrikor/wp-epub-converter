@@ -58,7 +58,9 @@ jQuery(document).ready(function($) {
 
             if (response.success) {
                 var downloadLink = '<a href="' + response.data.url + '">Download EPUB</a>';
-                $('#epubForm').append('<div id="downloadLink">' + downloadLink + '</div>');
+                $('#downloadLink').remove(); // Remove any existing download link
+                $('#epubForm').append('<div id="downloadLink" style="display:none;">' + downloadLink + '</div>');
+                $('#downloadLink').slideDown();
             } else {
                 console.error('Failed to generate EPUB:', response.data.message);
             }

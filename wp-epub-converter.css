@@ -88,3 +88,22 @@
 .btn:hover {
     background-color: #0056b3;
 }
+
+#downloadLink {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: center;
+}
+
+#downloadLink a {
+    text-decoration: none;
+    color: #007bff;
+    font-weight: bold;
+}
+
+#downloadLink a:hover {
+    text-decoration: underline;
+}
