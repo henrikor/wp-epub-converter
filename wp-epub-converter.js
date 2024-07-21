@@ -11,9 +11,16 @@ jQuery(document).ready(function($) {
         $('#epubAuthor').val(wpEpubConverter.default_author);
 
         // Fetch post title and set default title
-        $.get('/wp-json/wp/v2/posts/' + postId, function(post) {
-            var title = post.title.rendered; // Use full title
-            $('#epubTitle').val(title);
+        $.get(wpEpubConverter.ajax_url, {
+            action: 'get_post_title',
+            post_id: postId
+        }, function(response) {
+            if (response.success) {
+                var title = response.data.title;
+                $('#epubTitle').val(title);
+            } else {
+                console.error('Failed to fetch post title:', response.data.message);
+            }
         });
 
         // Set default EPUB version to 3

@@ -20,10 +20,30 @@ class WPEPUBConverter {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_action('wp_ajax_nopriv_generate_epub', array($this, 'generate_epub'));
         add_action('wp_ajax_generate_epub', array($this, 'generate_epub'));
-
+        add_action('wp_ajax_get_post_title', array($this, 'get_post_title')); // Add this line
+    
         error_log('WPEPUBConverter plugin initialized.');
     }
-
+    
+    public function get_post_title() {
+        // Ensure the request is an AJAX request
+        if (!defined('DOING_AJAX') || !DOING_AJAX) {
+            wp_send_json_error(array('message' => 'Invalid request'));
+            wp_die();
+        }
+    
+        $post_id = intval($_GET['post_id']);
+        $post = get_post($post_id);
+    
+        if ($post) {
+            wp_send_json_success(array('title' => $post->post_title));
+        } else {
+            wp_send_json_error(array('message' => 'Post not found'));
+        }
+    
+        wp_die();
+    }
+    
     public function create_admin_page() {
         add_menu_page(
             'EPUB Converter',
@@ -232,7 +252,7 @@ class WPEPUBConverter {
         ));
         error_log('Scripts enqueued.');
     }
-        
+            
 }
 
 function display_epub_link() {
