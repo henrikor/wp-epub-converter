@@ -107,3 +107,39 @@
 #downloadLink a:hover {
     text-decoration: underline;
 }
+
+.tooltip-icon {
+    cursor: pointer;
+    display: inline-block;
+    margin-left: 5px;
+    color: #007BFF;
+    border-bottom: 1px dotted #007BFF;
+}
+
+.tooltip-text {
+    visibility: hidden;
+    width: 200px;
+    background-color: #f9f9f9;
+    color: #333;
+    text-align: center;
+    border-radius: 5px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 100%; /* Position the tooltip above the text */
+    left: 50%;
+    margin-left: -100px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.tooltip-icon:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+.tooltip-icon:focus .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
