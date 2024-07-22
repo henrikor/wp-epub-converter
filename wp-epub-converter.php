@@ -216,18 +216,22 @@ class WPEPUBConverter {
         error_log('Command output: ' . implode("\n", $output));
         error_log('Command return value: ' . $return_var);
     
+        $epub_url = wp_upload_dir()['baseurl'] . '/epub_converter/' . ($kepub ? $kepub_file : $epub_file);
+        error_log('EPUB file URL: ' . $epub_url);
+        error_log('EPUB file exists: ' . (file_exists($epub_folder . '/' . ($kepub ? $kepub_file : $epub_file)) ? 'Yes' : 'No'));
+    
+        // Set file permissions to 0644 (readable by everyone)
+        $file_to_chmod = $epub_folder . '/' . ($kepub ? $kepub_file : $epub_file);
+        chmod($file_to_chmod, 0644);
+    
         if ($return_var !== 0) {
             error_log('Error during EPUB conversion: ' . implode("\n", $output));
             return false;
         }
     
-        $epub_url = wp_upload_dir()['baseurl'] . '/epub_converter/' . ($kepub ? $kepub_file : $epub_file);
-        error_log('EPUB file URL: ' . $epub_url);
-        error_log('EPUB file exists: ' . (file_exists($epub_folder . '/' . ($kepub ? $kepub_file : $epub_file)) ? 'Yes' : 'No'));
-    
         return $epub_url;
     }
-                                
+                                    
     public function enqueue_styles() {
         wp_enqueue_style('wp-epub-converter', plugins_url('wp-epub-converter.css', __FILE__));
         error_log('Styles enqueued.');
