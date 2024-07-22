@@ -19,19 +19,15 @@ class WPEPUBConverter {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_styles'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_action('wp_ajax_nopriv_generate_epub', array($this, 'generate_epub'));
+        add_action('wp_ajax_nopriv_get_post_title', 'get_post_title');
         add_action('wp_ajax_generate_epub', array($this, 'generate_epub'));
         add_action('wp_ajax_get_post_title', array($this, 'get_post_title')); // Add this line
     
         error_log('WPEPUBConverter plugin initialized.');
     }
     
-    public function get_post_title() {
-        // Ensure the request is an AJAX request
-        if (!defined('DOING_AJAX') || !DOING_AJAX) {
-            wp_send_json_error(array('message' => 'Invalid request'));
-            wp_die();
-        }
     
+    function get_post_title() {
         $post_id = intval($_GET['post_id']);
         $post = get_post($post_id);
     
@@ -43,7 +39,7 @@ class WPEPUBConverter {
     
         wp_die();
     }
-    
+        
     public function create_admin_page() {
         add_menu_page(
             'EPUB Converter',
@@ -149,6 +145,10 @@ class WPEPUBConverter {
         $kepub = isset($_POST['kepub']) ? boolval($_POST['kepub']) : false;
     
         error_log('Generating EPUB for post ID: ' . $post_id);
+        error_log('Author: ' . $author);
+        error_log('Title: ' . $title);
+        error_log('Version: ' . $version);
+        error_log('KEpub: ' . $kepub);
     
         // Generate EPUB file and get the URL
         $epub_url = $this->generate_epub_file($post_id, $author, $title, $version, $kepub);
@@ -162,14 +162,14 @@ class WPEPUBConverter {
         
         wp_die(); // Terminate AJAX request properly
     }
-                                                
+                                                           
     private function generate_epub_file($post_id, $author, $title, $version, $kepub) {
-        // Clean the output buffer
-        if (ob_get_length()) {
-            ob_end_clean();
+        $post = get_post($post_id);
+        if (!$post) {
+            error_log("Post not found.");
+            return false;
         }
     
-        $post = get_post($post_id);
         $default_author = get_option('wp_epub_converter_author', get_the_author_meta('display_name', $post->post_author));
         $author = empty($author) ? $default_author : $author;
         $title = empty($title) ? $post->post_title : $title;
@@ -184,16 +184,11 @@ class WPEPUBConverter {
         $wp_file = 'post_' . $post_id . '.html';
         $epub_folder = wp_upload_dir()['basedir'] . '/epub_converter';
         $epub_file = 'post_' . $post_id . '.epub';
+        $kepub_file = 'post_' . $post_id . '.kepub.epub';
     
         if (!file_exists($wp_folder)) {
             mkdir($wp_folder, 0755, true);
             error_log('Created directory: ' . $wp_folder);
-        }
-    
-        // Remove the existing file if it exists
-        if (file_exists($epub_folder . '/' . $epub_file)) {
-            unlink($epub_folder . '/' . $epub_file);
-            error_log('Deleted existing EPUB file: ' . $epub_folder . '/' . $epub_file);
         }
     
         $wp_file_path = $wp_folder . '/' . $wp_file;
@@ -217,28 +212,22 @@ class WPEPUBConverter {
         }
     
         error_log('Executing command: ' . $command);
-    
         exec($command, $output, $return_var);
         error_log('Command output: ' . implode("\n", $output));
         error_log('Command return value: ' . $return_var);
     
-        $epub_url = wp_upload_dir()['baseurl'] . '/epub_converter/' . $epub_file;
-        error_log('EPUB file URL: ' . $epub_url);
-        error_log('EPUB file exists: ' . (file_exists($epub_folder . '/' . $epub_file) ? 'Yes' : 'No'));
-    
         if ($return_var !== 0) {
             error_log('Error during EPUB conversion: ' . implode("\n", $output));
-            wp_die('Error during EPUB conversion: ' . implode("\n", $output));
+            return false;
         }
     
-        if (file_exists($epub_folder . '/' . $epub_file)) {
-            return $epub_url;
-        } else {
-            error_log('EPUB file not found: ' . $epub_folder . '/' . $epub_file);
-            wp_die('EPUB file not found.');
-        }
+        $epub_url = wp_upload_dir()['baseurl'] . '/epub_converter/' . ($kepub ? $kepub_file : $epub_file);
+        error_log('EPUB file URL: ' . $epub_url);
+        error_log('EPUB file exists: ' . (file_exists($epub_folder . '/' . ($kepub ? $kepub_file : $epub_file)) ? 'Yes' : 'No'));
+    
+        return $epub_url;
     }
-            
+                                
     public function enqueue_styles() {
         wp_enqueue_style('wp-epub-converter', plugins_url('wp-epub-converter.css', __FILE__));
         error_log('Styles enqueued.');

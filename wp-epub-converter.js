@@ -11,16 +11,9 @@ jQuery(document).ready(function($) {
         $('#epubAuthor').val(wpEpubConverter.default_author);
 
         // Fetch post title and set default title
-        $.get(wpEpubConverter.ajax_url, {
-            action: 'get_post_title',
-            post_id: postId
-        }, function(response) {
-            if (response.success) {
-                var title = response.data.title;
-                $('#epubTitle').val(title);
-            } else {
-                console.error('Failed to fetch post title:', response.data.message);
-            }
+        $.get('/wp-json/wp/v2/posts/' + postId, function(post) {
+            var title = post.title.rendered; // Use full title
+            $('#epubTitle').val(title);
         });
 
         // Set default EPUB version to 3
@@ -57,15 +50,18 @@ jQuery(document).ready(function($) {
             console.log('AJAX response:', response);
 
             if (response.success) {
-                var downloadLink = '<a href="' + response.data.url + '">Download EPUB</a>';
+                var downloadLink = '<a href="' + response.data.url + '" download>Download EPUB</a>';
                 $('#downloadLink').remove(); // Remove any existing download link
                 $('#epubForm').append('<div id="downloadLink" style="display:none;">' + downloadLink + '</div>');
                 $('#downloadLink').slideDown();
             } else {
-                console.error('Failed to generate EPUB:', response.data.message);
+                var errorMessage = response.data && response.data.message ? response.data.message : 'Unknown error';
+                console.error('Failed to generate EPUB:', errorMessage);
+                alert('Failed to generate EPUB: ' + errorMessage);
             }
         }).fail(function(jqXHR, textStatus, errorThrown) {
             console.error('AJAX error:', textStatus, errorThrown);
+            alert('AJAX error: ' + textStatus + ' - ' + errorThrown);
         });
     });
 });
